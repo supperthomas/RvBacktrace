@@ -135,5 +135,9 @@ void rvbacktrace_fno(int (*print_func)(const char *fmt, ...))
     print_func("\r\n");
 }
 
-MSH_CMD_EXPORT_ALIAS(rvbacktrace_fno, rv_backtrace_all, backtrace all threads);
+void rv_backtrace_func(void)
+{
+    rvbacktrace_fno(BACKTRACE_PRINTF);
+}
+MSH_CMD_EXPORT_ALIAS(rv_backtrace_func, rv_backtrace_all, backtrace all threads);
 #endif /* BACKTRACE_USE_FP */
