@@ -18,13 +18,13 @@ extern unsigned int rvstack_frame_len; // stack frame len
 void rvbacktrace(void)
 {
 #ifdef RV_BACKTRACE_USE_FP
-    rvbacktrace_fno(BACKTRACE_PRINTF);
+    rvbacktrace_fno();
 #else
-    rvbacktrace_fomit(BACKTRACE_PRINTF);
+    rvbacktrace_fomit();
 #endif /* RV_BACKTRACE_USE_FP */
 }
 
-void rvbacktrace_addr2line(rt_uint32_t *frame, int (*print_func)(const char *fmt, ...))
+void rvbacktrace_addr2line(rt_uint32_t *frame)
 {
     char buffer[STACK_BUFFER_LEN];
     int offset = 0;
@@ -35,7 +35,7 @@ void rvbacktrace_addr2line(rt_uint32_t *frame, int (*print_func)(const char *fmt
         if (offset >= STACK_BUFFER_LEN)
             break;
     }
-    print_func("\naddr2line -e rtthread.elf -a -f %s\n", buffer); 
+    BACKTRACE_PRINTF("\naddr2line -e rtthread.elf -a -f %s\n", buffer); 
 }
 
 #if defined (BACKTRACE_FSTACK_PROTECT)
