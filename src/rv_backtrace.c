@@ -9,7 +9,7 @@
  * 2024-08-30     WangShun     add addr2line function
  */
 
-#include "../include/rvbacktrace.h"
+#include "rvbacktrace.h"
 
 unsigned int rvstack_frame[STACK_FRAME_LEN]; // stack frame
 unsigned int rvstack_frame_len; // stack frame len
@@ -24,7 +24,7 @@ void rvbacktrace(void)
 #endif /* RV_BACKTRACE_USE_FP */
 }
 
-void rvbacktrace_addr2line(rt_uint32_t *frame)
+void rvbacktrace_addr2line(uint32_t *frame)
 {
     char buffer[STACK_BUFFER_LEN];
     int offset = 0;

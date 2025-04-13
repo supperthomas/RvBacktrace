@@ -3,6 +3,7 @@
  * Date           Author       Notes
  * 2023-11-23     WangShun     the first version
  * 2024-09-19     WangShun     support rv32
+ * 2025-04-13     Supper Thomas 修复汇编指令的异常，立即数改为8字节对齐方便适配RISCV32平台
  */
 
 #include "rvbacktrace.h"
@@ -325,7 +326,7 @@ int rvbacktrace_fomit(void)
             break;
         }
     }
-    rvbacktrace_addr2line((rt_uint32_t *)&rvstack_frame[0]);
+    rvbacktrace_addr2line((uint32_t *)&rvstack_frame[0]);
     BACKTRACE_PRINTF("---- RV_Backtrace Call Frame End:----\r\n");
     BACKTRACE_PRINTF("\r\n");
     return lvl;

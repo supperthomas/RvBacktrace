@@ -47,6 +47,6 @@ struct stackframe
 void rvbacktrace(void); // backtrace function for usr
 void rvbacktrace_fno(void);
 int rvbacktrace_fomit(void);
-void rvbacktrace_addr2line(rt_uint32_t *frame);
+void rvbacktrace_addr2line(uint32_t *frame);
 
 #endif /* RV_BACKTRANCE_H */
