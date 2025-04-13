@@ -5,7 +5,7 @@
  * 2024-09-19     WangShun     support rv32
  */
 
-#include "../include/rvbacktrace.h"
+#include "rvbacktrace.h"
 
 /* Please check that the following symbols are defined in the linked scripts ！*/ 
 /* If not, define the following symbols at the beginning and end of the text segment */
