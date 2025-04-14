@@ -3,9 +3,10 @@
  * Date           Author       Notes
  * 2023-11-23     WangShun     the first version
  * 2024-09-19     WangShun     support rv32
+ * 2025-04-13     Supper Thomas 修复汇编指令的异常，立即数改为8字节对齐方便适配RISCV32平台
  */
 
-#include "../include/rvbacktrace.h"
+#include "rvbacktrace.h"
 
 /* Please check that the following symbols are defined in the linked scripts ！*/ 
 /* If not, define the following symbols at the beginning and end of the text segment */
@@ -172,7 +173,7 @@ static char *k_int64tostr(int64_t num, char *str)
 }
 
 /* get the offset between the jump instruction and the return address */
-static int backtraceFindLROffset(char *LR, int (*print_func)(const char *fmt, ...))
+static int backtraceFindLROffset(char *LR)
 {
     int offset = 0;
     char *LR_indeed;
@@ -181,7 +182,8 @@ static int backtraceFindLROffset(char *LR, int (*print_func)(const char *fmt, ..
     LR_indeed = BT_PC2ADDR(LR);
 
     /* Usually jump using the JAL instruction */
-    ins32 = *(unsigned int *)(LR_indeed - 4);
+    //ins32 = *(unsigned int *)(LR_indeed - 4);
+    rv_memcpy(&ins32, (LR_indeed - 4), sizeof(ins32));
     if ((ins32 & 0x3) == 0x3) {
         offset = 4;
     } else {
@@ -191,8 +193,7 @@ static int backtraceFindLROffset(char *LR, int (*print_func)(const char *fmt, ..
     return offset;
 }
 
-static int riscv_backtraceFromStack(uintptr_t **pSP, char **pPC,
-                                    int (*print_func)(const char *fmt, ...))
+static int riscv_backtraceFromStack(uintptr_t **pSP, char **pPC)
 {
     char *CodeAddr = NULL;
     uintptr_t  *SP      = *pSP;
@@ -209,7 +210,8 @@ static int riscv_backtraceFromStack(uintptr_t **pSP, char **pPC,
         /* FIXME: not accurate from bottom to up. how to judge 2 or 4byte inst */
         //CodeAddr = (char *)(((long)PC & (~0x3)) - i);
         CodeAddr = (char *)(PC - i);
-        ins32 = *(unsigned int *)(CodeAddr);
+        //ins32 = *(unsigned int *)(CodeAddr);
+        rv_memcpy(&ins32, CodeAddr, sizeof(ins32));
         if ((ins32 & 0x3) == 0x3) {
             ins16 = *(unsigned short *)(CodeAddr - 2);
             if ((ins16 & 0x3) != 0x3) {
@@ -233,15 +235,16 @@ static int riscv_backtraceFromStack(uintptr_t **pSP, char **pPC,
 
     if (i == BT_FUNC_LIMIT) {
         /* error branch */
-        if (print_func != NULL) {
-            print_func("Backtrace fail!\r\n");
-        }
+        #ifdef BACKTRACE_PRINTF
+            BACKTRACE_PRINTF("Backtrace fail!\r\n");
+        #endif
         return -1;
     }
 
     /* 2. scan code, find ins: sd ra,24(sp) or sd ra,552(sp) */
     for (i = 0; CodeAddr + i < PC;) {
-        ins32 = *(unsigned int *)(CodeAddr + i);
+        //ins32 = *(unsigned int *)(CodeAddr + i);
+        rv_memcpy(&ins32, (CodeAddr+i), sizeof(ins32));
         if ((ins32 & 0x3) == 0x3) {
             i += 4;
             offset = riscv_backtrace_ra_offset_get1(ins32);
@@ -262,30 +265,29 @@ static int riscv_backtraceFromStack(uintptr_t **pSP, char **pPC,
     LR     = (char *) * (SP + offset);
 
     if (BT_CHK_PC_AVAIL(LR) == 0) {
-        if (print_func != NULL) {
-            print_func("End of stack backtracking,LR value is:0x%p\r\n",LR);
-        }
+        #ifdef BACKTRACE_PRINTF
+            BACKTRACE_PRINTF("Backtrace fail!\r\n");
+        #endif
         return -1;
     }
     *pSP   = SP + framesize;
-    offset = backtraceFindLROffset(LR, print_func);
+    offset = backtraceFindLROffset(LR);
 
     rvstack_frame[lvl] = (unsigned int)(LR - offset);
 
-    print_func("[%d]Stack interval :[0x%016lx - 0x%016lx]  ra 0x%016lx pc 0x%016lx\n", lvl, SP, SP + framesize, LR, LR - offset);
+    BACKTRACE_PRINTF("[%d]Stack interval :[0x%016lx - 0x%016lx]  ra 0x%016lx pc 0x%016lx\n", lvl, SP, SP + framesize, LR, LR - offset);
     *pPC   = LR - offset;
 
     return offset == 0 ? 1 : 0;
 }
 
-static int backtraceFromStack(uintptr_t **pSP, char **pPC,
-                              int (*print_func)(const char *fmt, ...))
+static int backtraceFromStack(uintptr_t **pSP, char **pPC)
 {
     if (BT_CHK_PC_AVAIL(*pPC) == 0) {
         return -1;
     }
 
-    return riscv_backtraceFromStack(pSP, pPC, print_func);
+    return riscv_backtraceFromStack(pSP, pPC);
 }
 
 /* get the return address of the current function */
@@ -306,38 +308,35 @@ __attribute__((always_inline)) static inline void *backtrace_get_pc(void)
 
 /* printf call stack
    return levels of call stack */
-int rvbacktrace_fomit(int (*print_func)(const char *fmt, ...))
+int rvbacktrace_fomit(void)
 {
     char *PC;
     uintptr_t  *SP;
     int   ret;
 
-    if (print_func == NULL) {
-        print_func = printf;
-    }
-
     SP = backtrace_get_sp();
     PC = backtrace_get_pc();
 
-    print_func("\r\n---- RV_Backtrace Call Frame Start: -SP_size:%x---\r\n",sizeof(SP));
-    print_func("###Please consider the value of ra as accurate and the value of sp as only for reference###\n");
-    print_func("------------------------------Thread: %s backtrace------------------------------\r\n", ((rt_thread_t)rt_thread_self())->parent.name);
-    print_func("----SP:0x%x----PC:0x%x----\r\n",SP,PC);
+    BACKTRACE_PRINTF("\r\n---- RV_Backtrace Call Frame Start: -SP_size:%x---\r\n",sizeof(SP));
+    BACKTRACE_PRINTF("###Please consider the value of ra as accurate and the value of sp as only for reference###\n");
+    BACKTRACE_PRINTF("------------------------------Thread: %s backtrace------------------------------\r\n", ((rt_thread_t)rt_thread_self())->parent.name);
+    BACKTRACE_PRINTF("----SP:0x%x----PC:0x%x----\r\n",SP,PC);
+
     for (lvl = 0; lvl < BT_LVL_LIMIT; lvl++) {
-        ret = backtraceFromStack(&SP, &PC, print_func);
+        ret = backtraceFromStack(&SP, &PC);
         if (ret != 0) {
             rvstack_frame_len = lvl;
             break;
         }
     }
-    rvbacktrace_addr2line((rt_uint32_t *)&rvstack_frame[0], print_func);
-    print_func("---- RV_Backtrace Call Frame End:----\r\n");
-    print_func("\r\n");
+    rvbacktrace_addr2line((uint32_t *)&rvstack_frame[0]);
+    BACKTRACE_PRINTF("---- RV_Backtrace Call Frame End:----\r\n");
+    BACKTRACE_PRINTF("\r\n");
     return lvl;
 }
 
 void rv_backtrace_fomit_func(void)
 {
-    rvbacktrace_fomit(BACKTRACE_PRINTF);
+    rvbacktrace_fomit();
 }
 MSH_CMD_EXPORT_ALIAS(rv_backtrace_fomit_func, rv_backtrace_fomit, backtrace fomit);
