@@ -10,6 +10,7 @@
 // #define BACKTRACE_ALL    // Before enabling this option, enable the BACKTRACE_USE_FP / Outputs the stack of all threads
 // #define BACKTRACE_FSTACK_PROTECT // To enable this option, add the [-fstack-protector-strong] option to ASM,C/C++, add [-Wl,--wrap,_exit] flag to link option.
 #define BACKTRACE_PRINTF rt_kprintf // Printf function to print stack back information
+#define rv_memcpy   rt_memcpy // Memory copy function 为了支持非对齐访问
 
 /* Backtrace All Threads */
 #if defined(BACKTRACE_USE_FP) && defined(BACKTRACE_ALL)

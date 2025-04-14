@@ -182,7 +182,8 @@ static int backtraceFindLROffset(char *LR)
     LR_indeed = BT_PC2ADDR(LR);
 
     /* Usually jump using the JAL instruction */
-    ins32 = *(unsigned int *)(LR_indeed - 4);
+    //ins32 = *(unsigned int *)(LR_indeed - 4);
+    rv_memcpy(&ins32, (LR_indeed - 4), sizeof(ins32));
     if ((ins32 & 0x3) == 0x3) {
         offset = 4;
     } else {
@@ -209,7 +210,8 @@ static int riscv_backtraceFromStack(uintptr_t **pSP, char **pPC)
         /* FIXME: not accurate from bottom to up. how to judge 2 or 4byte inst */
         //CodeAddr = (char *)(((long)PC & (~0x3)) - i);
         CodeAddr = (char *)(PC - i);
-        ins32 = *(unsigned int *)(CodeAddr);
+        //ins32 = *(unsigned int *)(CodeAddr);
+        rv_memcpy(&ins32, CodeAddr, sizeof(ins32));
         if ((ins32 & 0x3) == 0x3) {
             ins16 = *(unsigned short *)(CodeAddr - 2);
             if ((ins16 & 0x3) != 0x3) {
@@ -241,7 +243,8 @@ static int riscv_backtraceFromStack(uintptr_t **pSP, char **pPC)
 
     /* 2. scan code, find ins: sd ra,24(sp) or sd ra,552(sp) */
     for (i = 0; CodeAddr + i < PC;) {
-        ins32 = *(unsigned int *)(CodeAddr + i);
+        //ins32 = *(unsigned int *)(CodeAddr + i);
+        rv_memcpy(&ins32, (CodeAddr+i), sizeof(ins32));
         if ((ins32 & 0x3) == 0x3) {
             i += 4;
             offset = riscv_backtrace_ra_offset_get1(ins32);
