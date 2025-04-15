@@ -31,7 +31,12 @@ void rvbacktrace_addr2line(uint32_t *frame)
 
     for (int i = 0; i < rvstack_frame_len; i++)
     {
+#if __riscv_xlen == 64
+        uint64_t addr = frame[i] & 0x00000000ffffffff; // 按位与操作去掉符号位
+        offset += snprintf(buffer + offset, STACK_BUFFER_LEN - offset, "%lx ", addr);
+#else
         offset += snprintf(buffer + offset, STACK_BUFFER_LEN - offset, "%lx ", frame[i]);
+#endif
         if (offset >= STACK_BUFFER_LEN)
             break;
     }
@@ -103,7 +108,7 @@ long rvb_test(int argc, char **argv) {
 }
 MSH_CMD_EXPORT(rvb_test, rvb_test: rvb_test <HARDFAULT|DIVBYZERO|UNALIGNED|ASSERT> );
 
-RT_WEAK rt_err_t exception_hook(void *context) {
+rt_err_t exception_hook(void *context) {
     volatile uint8_t _continue = 1;
 
     rvbacktrace();
@@ -112,7 +117,7 @@ RT_WEAK rt_err_t exception_hook(void *context) {
     return RT_EOK;
 }
 
-RT_WEAK void assert_hook(const char* ex, const char* func, rt_size_t line) {
+void assert_hook(const char* ex, const char* func, rt_size_t line) {
     volatile uint8_t _continue = 1;
     
     rvbacktrace();

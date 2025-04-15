@@ -43,7 +43,11 @@ static int riscv_backtrace_framesize_get1(unsigned int inst)
     if ((inst & 0x800FFFFF) == 0x80010113) {
         imm = (inst >> 20) & 0x7FF;
         imm = (~imm & 0x7FF) + 1;
-        return imm >> 2;
+#if __riscv_xlen == 64
+        return imm >> 3; // RV64: 以 8 字节为单位
+#else
+        return imm >> 2;  // RV32: 以 4 字节为单位
+#endif
     }
 
     return -1;
@@ -66,7 +70,11 @@ static int riscv_backtrace_framesize_get(unsigned short inst)
     if ((inst & 0xFF83) == 0x1101) {
         imm = (inst >> 2) & 0x1F;
         imm = (~imm & 0x1F) + 1;
-        return imm >> 2;
+#if __riscv_xlen == 64
+        return imm >> 3; // RV64: 以 8 字节为单位
+#else
+        return imm >> 2;  // RV32: 以 4 字节为单位
+#endif
     }
 
     /* c.addi16sp sp, nzuimm6<<4
@@ -89,7 +97,11 @@ static int riscv_backtrace_framesize_get(unsigned short inst)
         imm = (imm << 1) | ((inst >> 2) & 0x1);
         imm = (imm << 1) | ((inst >> 6) & 0x1);
         imm = ((~imm & 0x1f) + 1) << 4;
-        return imm >> 2;
+#if __riscv_xlen == 64
+        return imm >> 3; // RV64: 以 8 字节为单位
+#else
+        return imm >> 2;  // RV32: 以 4 字节为单位
+#endif
     }
 
     return -1;
@@ -113,7 +125,11 @@ static int riscv_backtrace_ra_offset_get1(unsigned int inst)
         imm = (inst >> 7) & 0x1F;
         imm |= ((inst >> 25) & 0x7F) << 5;
         /* The unit is size_t, So we don't have to move 3 bits to the left */
-        return imm >> 2;
+#if __riscv_xlen == 64
+        return imm >> 3; // RV64: 以 8 字节为单位
+#else
+        return imm >> 2;  // RV32: 以 4 字节为单位
+#endif
     }
 
     return -1;
@@ -142,7 +158,11 @@ static int riscv_backtrace_ra_offset_get(unsigned short inst)
         imm = (inst >> 9) & 0x0F; //imm[5:2] 已经偏移最低两位，放大了4倍
         imm = imm | (((inst >> 7) & 0x3)<<4); //imm[7:6]
         /* The unit is size_t, So we don't have to move 3 bits to the left */
-        return imm;
+#if __riscv_xlen == 64
+        return imm >> 1; // RV64: 以 8 字节为单位
+#else
+        return imm;  // RV32: 以 4 字节为单位
+#endif
     }
 
     return -1;
@@ -212,12 +232,14 @@ static int riscv_backtraceFromStack(uint32_t **pSP, char **pPC)
         CodeAddr = (char *)(PC - i);
         //ins32 = *(unsigned int *)(CodeAddr);
         rv_memcpy(&ins32, CodeAddr, sizeof(ins32));
+        //DEBUG_RV_BACKTRACE("\n=========CodeAddr:%p==ins32:%x===",CodeAddr,ins32);
         if ((ins32 & 0x3) == 0x3) {
             ins16 = *(unsigned short *)(CodeAddr - 2);
             if ((ins16 & 0x3) != 0x3) {
                 i += 4;
                 framesize = riscv_backtrace_framesize_get1(ins32);
                 if (framesize >= 0) {
+         //           BACKTRACE_PRINTF("\n=========CodeAddr:%p==ins32:%x=framesize:%d==",CodeAddr,ins32,framesize);
                     CodeAddr += 4;
                     break;
                 }
@@ -228,6 +250,7 @@ static int riscv_backtraceFromStack(uint32_t **pSP, char **pPC)
         ins16 = (ins32 >> 16) & 0xffff;
         framesize = riscv_backtrace_framesize_get(ins16);
         if (framesize >= 0) {
+            //DEBUG_RV_BACKTRACE("\n=========CodeAddr:%p==ins16:%x==framesize:%d=",CodeAddr,ins16,framesize);
             CodeAddr += 2;
             break;
         }
@@ -245,10 +268,12 @@ static int riscv_backtraceFromStack(uint32_t **pSP, char **pPC)
     for (i = 0; CodeAddr + i < PC;) {
         //ins32 = *(unsigned int *)(CodeAddr + i);
         rv_memcpy(&ins32, (CodeAddr+i), sizeof(ins32));
+        //DEBUG_RV_BACKTRACE("\n==2=======CodeAddr:%p==ins32:%x===",CodeAddr,ins32);
         if ((ins32 & 0x3) == 0x3) {
             i += 4;
             offset = riscv_backtrace_ra_offset_get1(ins32);
             if (offset >= 0) {
+                //DEBUG_RV_BACKTRACE("\n=========CodeAddr:%p==ins32:%x==offset:%d=",CodeAddr,ins32,offset);
                 break;
             }
         } else {
@@ -256,6 +281,7 @@ static int riscv_backtraceFromStack(uint32_t **pSP, char **pPC)
             ins16 = ins32 & 0xffff;
             offset = riscv_backtrace_ra_offset_get(ins16);
             if (offset >= 0) {
+                //DEBUG_RV_BACKTRACE("\n=========CodeAddr:%p==ins16:%x==offset:%d=",CodeAddr,ins16,offset);
                 break;
             }
         }
