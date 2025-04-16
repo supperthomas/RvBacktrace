@@ -273,6 +273,7 @@ addr2line -e rtthread.elf -a -f 8000d44c 8000d2b8 8000d364 80012220 8000688c 108
 |  D1/XuanTianC906  |   pass   |
 | CH32V307/RISC-V4F |   pass   |
 | HPM6750/Andes D45 |   pass   |
+| QEMU RISCV64 VIRT |   pass   |
 
 ## 参考链接
 
