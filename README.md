@@ -6,6 +6,12 @@
 
 RVBacktrace是一个极简的RISC-V栈回溯组件。用于断言或异常等情况下的辅助调试。
 
+![Contributors](https://img.shields.io/github/contributors/Yaochenger/RvBacktrace) 
+![Stars](https://img.shields.io/github/stars/Yaochenger/RvBacktrace?style=social) 
+![Issues](https://img.shields.io/github/issues/Yaochenger/RvBacktrace) 
+![Last Commit](https://img.shields.io/github/last-commit/Yaochenger/RvBacktrace)
+![License](https://img.shields.io/github/license/Yaochenger/RvBacktrace)
+
 ## 组件功能
 
 ### 基础功能
